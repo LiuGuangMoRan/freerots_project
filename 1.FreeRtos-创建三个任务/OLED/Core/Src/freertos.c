@@ -1,0 +1,224 @@
+/* USER CODE BEGIN Header */
+/**
+  ******************************************************************************
+  * File Name          : freertos.c
+  * Description        : Code for freertos applications
+  ******************************************************************************
+  * @attention
+  *
+  * Copyright (c) 2024 STMicroelectronics.
+  * All rights reserved.
+  *
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
+  *
+  ******************************************************************************
+  */
+/* USER CODE END Header */
+
+/* Includes ------------------------------------------------------------------*/
+#include "FreeRTOS.h"
+#include "task.h"
+#include "main.h"
+#include "cmsis_os.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+#include "OLED.h"
+#include "driver_timer.h"
+#include "driver_led.h"
+#include "driver_passive_buzzer.h"
+#include "driver_active_buzzer.h"
+#include "driver_key.h"
+/* USER CODE END Includes */
+
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+TaskHandle_t xbuzzerTaskHandle = NULL;
+
+static uint32_t g_pucstackofLightTask[128];
+static StaticTask_t g_TCBofLightTask;
+
+static uint32_t g_pucstackofoldeTask[128];
+static StaticTask_t g_TCBofoldeTask;
+
+TaskHandle_t  x_TCBofLightTask;
+TaskHandle_t  x_TCBofoldeTask;
+
+/* USER CODE BEGIN Variables */
+
+/* USER CODE END Variables */
+/* Definitions for defaultTask */
+osThreadId_t defaultTaskHandle;
+const osThreadAttr_t defaultTask_attributes = {
+    .name = "defaultTask",
+    .stack_size = 128 * 4,
+    .priority = (osPriority_t) osPriorityNormal,
+};
+
+/* Private function prototypes -----------------------------------------------*/
+/* USER CODE BEGIN FunctionPrototypes */
+
+struct TaskPrintInfo
+{
+    uint8_t x;
+    uint8_t y;
+    char name[16];
+};
+
+
+static struct TaskPrintInfo g_Task1Info = {1,1,"Task1:"};
+static struct TaskPrintInfo g_Task2Info = {2,1,"Task2:"};
+static struct TaskPrintInfo g_Task3Info = {3,1,"Task3:"};
+
+static int g_LCDCanUse = 1;
+
+void LcdPrintTask(void *params)
+{
+    uint32_t count = 0;
+    struct TaskPrintInfo *pInfo = params;
+    while(1)
+    {   if(g_LCDCanUse)
+        {
+            g_LCDCanUse = 0;
+            OLED_ShowString(pInfo->x,pInfo->y,pInfo->name);
+            OLED_ShowNum(pInfo->x,7,count++,3);
+            g_LCDCanUse = 1;
+        }
+        mdelay(500);
+    }
+}
+
+
+/* USER CODE END FunctionPrototypes */
+
+void StartDefaultTask(void *argument);
+
+void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
+
+/**
+  * @brief  FreeRTOS initialization
+  * @param  None
+  * @retval None
+  */
+void MX_FREERTOS_Init(void) {
+    /* USER CODE BEGIN Init */
+   
+    BaseType_t ret;
+    /* USER CODE END Init */
+
+    /* USER CODE BEGIN RTOS_MUTEX */
+    /* add mutexes, ... */
+    /* USER CODE END RTOS_MUTEX */
+
+    /* USER CODE BEGIN RTOS_SEMAPHORES */
+    /* add semaphores, ... */
+    /* USER CODE END RTOS_SEMAPHORES */
+
+    /* USER CODE BEGIN RTOS_TIMERS */
+    /* start timers, add new ones, ... */
+    /* USER CODE END RTOS_TIMERS */
+
+    /* USER CODE BEGIN RTOS_QUEUES */
+    /* add queues, ... */
+    /* USER CODE END RTOS_QUEUES */
+
+    /* Create the thread(s) */
+    /* creation of defaultTask */
+    defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+
+
+    /* USER CODE BEGIN RTOS_THREADS */
+    /* add threads, ... */
+
+//实验1-----创建3个任务
+
+  /* 创建任务Test--动态创建 */
+  ret = xTaskCreate((TaskFunction_t)ActiveBuzzer_Test,"buzzerTask",128,NULL,osPriorityNormal,&xbuzzerTaskHandle);
+
+/* 创建任务Test--静态创建 */
+  x_TCBofLightTask = xTaskCreateStatic((TaskFunction_t)Led_Test,"LightTask",128,NULL,osPriorityNormal,g_pucstackofLightTask,&g_TCBofLightTask);
+
+  x_TCBofoldeTask = xTaskCreateStatic((TaskFunction_t)OLED_test,"OLEDTask",128,NULL,osPriorityNormal,g_pucstackofoldeTask,&g_TCBofoldeTask);
+
+    //实验2----使用同一函数创建不同任务
+//    xTaskCreate(LcdPrintTask,"LcdPrintTask1",128,&g_Task1Info,osPriorityNormal,NULL);
+//    xTaskCreate(LcdPrintTask,"LcdPrintTask2",128,&g_Task2Info,osPriorityNormal,NULL);
+//    xTaskCreate(LcdPrintTask,"LcdPrintTask3",128,&g_Task3Info,osPriorityNormal,NULL);
+
+
+
+    /* USER CODE END RTOS_THREADS */
+
+    /* USER CODE BEGIN RTOS_EVENTS */
+    /* add events, ... */
+    /* USER CODE END RTOS_EVENTS */
+
+}
+
+/* USER CODE BEGIN Header_StartDefaultTask */
+/**
+  * @brief  Function implementing the defaultTask thread.
+  * @param  argument: Not used
+  * @retval None
+  */
+/* USER CODE END Header_StartDefaultTask */
+void StartDefaultTask(void *argument)
+{
+    /* USER CODE BEGIN StartDefaultTask */
+//	Key_Init();
+//	OLED_ShowString(1,1,"Wait control");
+	
+    /* Infinite loop */
+    for(;;)
+    {
+//		if(Key_Read() == 1)
+//		{   
+//			if(xbuzzerTaskHandle == NULL)
+//			{
+//			 OLED_Clear();
+//			 OLED_ShowString(1,1,"creat Task ok");
+//			 xTaskCreate(ActiveBuzzer_Test,"buzzerTask",128,NULL,osPriorityNormal,&xbuzzerTaskHandle);
+//			}
+//			
+//		}
+//		if(Key_Read() == 2)
+//		{
+//		 if(xbuzzerTaskHandle != NULL)
+//		 {
+//			OLED_Clear();
+//			OLED_ShowString(1,1,"delete Task ok");
+//			vTaskDelete(xbuzzerTaskHandle);
+//			xbuzzerTaskHandle = NULL; 
+//		 }
+//		}
+		
+//	OLED_ShowNum(2,1,count++,3);
+////	ActiveBuzzer_Test();
+////    Led_Test();
+//    mdelay(1000);
+    }
+    /* USER CODE END StartDefaultTask */
+}
+
+/* Private application code --------------------------------------------------*/
+/* USER CODE BEGIN Application */
+
+
+/* USER CODE END Application */
+
